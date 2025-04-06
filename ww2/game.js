@@ -28,6 +28,36 @@ let bullets = [];
 let lastShot = 0;
 const SHOT_COOLDOWN = 250; // Minimum time between shots in milliseconds
 
+// Movement controls
+const keys = {
+    ArrowUp: false,
+    ArrowDown: false,
+    ArrowLeft: false,
+    ArrowRight: false,
+    w: false,
+    a: false,
+    s: false,
+    d: false,
+    ' ': false // space for boost
+};
+
+// Add event listeners for keyboard
+document.addEventListener('keydown', (e) => {
+    if (keys.hasOwnProperty(e.key)) {
+        keys[e.key] = true;
+    }
+});
+
+document.addEventListener('keyup', (e) => {
+    if (keys.hasOwnProperty(e.key)) {
+        keys[e.key] = false;
+    }
+});
+
+// Movement speed and direction
+const moveSpeed = 0.2;
+const boostMultiplier = 2.0;
+
 function init() {
     // Create scene
     scene = new THREE.Scene();
@@ -388,6 +418,9 @@ function moveObjects() {
 
 function animate() {
     requestAnimationFrame(animate);
+    
+    updateMovement();
+    
     moveObjects();
     if (!isGameOver) {
         checkCollisions();
@@ -520,6 +553,58 @@ function createExplosion(position) {
     };
     
     animateExplosion();
+}
+
+function updateMovement() {
+    // Get movement direction from either keyboard or mobile controls
+    let moveX = 0;
+    let moveY = 0;
+    let isBoosting = false;
+
+    // Check keyboard controls
+    if (keys.ArrowLeft || keys.a) moveX -= 1;
+    if (keys.ArrowRight || keys.d) moveX += 1;
+    if (keys.ArrowUp || keys.w) moveY += 1;  // Changed to positive for up
+    if (keys.ArrowDown || keys.s) moveY -= 1;  // Changed to negative for down
+    if (keys[' ']) isBoosting = true;
+
+    // Check mobile controls if available
+    if (window.mobileControls) {
+        const joystickPos = window.mobileControls.getJoystickPosition();
+        // Normalize joystick position to -1 to 1 range and invert Y axis
+        moveX += joystickPos.x / 50;
+        moveY -= joystickPos.y / 50;  // Inverted Y axis
+        if (window.mobileControls.isBoostPressed) isBoosting = true;
+    }
+
+    // Normalize diagonal movement
+    if (moveX !== 0 && moveY !== 0) {
+        const length = Math.sqrt(moveX * moveX + moveY * moveY);
+        moveX /= length;
+        moveY /= length;
+    }
+
+    // Apply movement with boost
+    const currentSpeed = isBoosting ? moveSpeed * boostMultiplier : moveSpeed;
+    player.position.x += moveX * currentSpeed;
+    player.position.y += moveY * currentSpeed;
+
+    // Keep player within screen bounds
+    const screenWidth = window.innerWidth;
+    const screenHeight = window.innerHeight;
+    const aspectRatio = screenWidth / screenHeight;
+    
+    // Calculate visible bounds based on camera position and field of view
+    const fov = camera.fov * (Math.PI / 180);
+    const visibleHeight = 2 * Math.tan(fov / 2) * Math.abs(camera.position.z);
+    const visibleWidth = visibleHeight * aspectRatio;
+    
+    // Set bounds to keep player visible
+    const xBound = visibleWidth / 2 - 1; // 1 unit padding from edge
+    const yBound = visibleHeight / 2 - 1; // 1 unit padding from edge
+    
+    player.position.x = Math.max(-xBound, Math.min(xBound, player.position.x));
+    player.position.y = Math.max(-yBound, Math.min(yBound, player.position.y));
 }
 
 init();
