@@ -20,6 +20,7 @@
         .game-container {
             position: relative;
             margin: 20px;
+            touch-action: none; /* Prevent default touch behaviors */
         }
 
         canvas {
@@ -115,6 +116,23 @@
         .pulse {
             animation: pulse 1s infinite;
         }
+
+        .touch-control {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 100px;
+            background: rgba(0, 0, 0, 0.2);
+            z-index: 1;
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .touch-control {
+                display: block;
+            }
+        }
     </style>
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 </head>
@@ -123,6 +141,7 @@
         <div id="score">Player: 0 | Computer: 0</div>
         <div id="powerUpIndicator" class="power-up-indicator"></div>
         <canvas id="pongCanvas" width="800" height="400"></canvas>
+        <div class="touch-control"></div>
         <div id="gameMenu" class="game-menu">
             <h1>Josh's Game Collection</h1>
             <button onclick="startGame()">Play Pong</button>
@@ -143,6 +162,7 @@
                 this.scoreElement = document.getElementById('score');
                 this.powerUpIndicator = document.getElementById('powerUpIndicator');
                 this.gameMenu = document.getElementById('gameMenu');
+                this.touchControl = document.querySelector('.touch-control');
                 
                 // Game objects
                 this.ball = {
@@ -184,6 +204,16 @@
                     ArrowDown: false,
                     Space: false
                 };
+
+                // Touch state
+                this.touchStartY = 0;
+                this.touchY = 0;
+                this.isTouching = false;
+                
+                // Add touch event listeners
+                this.touchControl.addEventListener('touchstart', (e) => this.handleTouchStart(e));
+                this.touchControl.addEventListener('touchmove', (e) => this.handleTouchMove(e));
+                this.touchControl.addEventListener('touchend', () => this.handleTouchEnd());
 
                 document.addEventListener('keydown', (e) => this.handleKeyDown(e));
                 document.addEventListener('keyup', (e) => this.handleKeyUp(e));
@@ -341,6 +371,33 @@
                 if (this.keys.hasOwnProperty(e.key)) {
                     this.keys[e.key] = false;
                 }
+            }
+
+            handleTouchStart(e) {
+                e.preventDefault();
+                this.isTouching = true;
+                this.touchStartY = e.touches[0].clientY;
+                this.touchY = this.touchStartY;
+            }
+
+            handleTouchMove(e) {
+                e.preventDefault();
+                if (!this.isTouching) return;
+                
+                this.touchY = e.touches[0].clientY;
+                const touchDelta = this.touchY - this.touchStartY;
+                const newY = this.player.y + touchDelta;
+                
+                // Keep paddle within canvas bounds
+                if (newY >= 0 && newY <= this.canvas.height - this.paddleHeight) {
+                    this.player.y = newY;
+                }
+                
+                this.touchStartY = this.touchY;
+            }
+
+            handleTouchEnd() {
+                this.isTouching = false;
             }
 
             update() {
