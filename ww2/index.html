@@ -2,9 +2,18 @@
 <html>
 <head>
     <title>3D Flying Game</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
-        body { margin: 0; }
-        canvas { display: block; }
+        body { 
+            margin: 0;
+            overflow: hidden;
+            touch-action: none;
+        }
+        canvas { 
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
         #score {
             position: absolute;
             top: 20px;
@@ -38,6 +47,7 @@
             font-family: Arial;
             border: 2px solid #444;
             box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            z-index: 100;
         }
         #gameOver h2 {
             color: #ff4444;
@@ -61,6 +71,68 @@
         #restartButton:hover {
             background: #4466ff;
         }
+
+        /* Mobile Controls */
+        #mobileControls {
+            display: none;
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        #joystick {
+            position: absolute;
+            left: 50px;
+            bottom: 50px;
+            width: 100px;
+            height: 100px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            pointer-events: auto;
+        }
+
+        #joystickKnob {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            background: rgba(255, 255, 255, 0.5);
+            border-radius: 50%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        #actionButtons {
+            position: absolute;
+            right: 50px;
+            bottom: 50px;
+            display: flex;
+            gap: 20px;
+            pointer-events: auto;
+        }
+
+        .actionButton {
+            width: 60px;
+            height: 60px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 24px;
+        }
+
+        @media (max-width: 768px) {
+            #mobileControls {
+                display: block;
+            }
+            #instructions {
+                display: none;
+            }
+        }
     </style>
 </head>
 <body>
@@ -74,7 +146,99 @@
         <div id="finalScore">Score: 0</div>
         <button id="restartButton">Play Again</button>
     </div>
+
+    <!-- Mobile Controls -->
+    <div id="mobileControls">
+        <div id="joystick">
+            <div id="joystickKnob"></div>
+        </div>
+        <div id="actionButtons">
+            <div class="actionButton" id="boostButton">⚡</div>
+            <div class="actionButton" id="shootButton">🔫</div>
+        </div>
+    </div>
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // Mobile Controls
+        const joystick = document.getElementById('joystick');
+        const joystickKnob = document.getElementById('joystickKnob');
+        const boostButton = document.getElementById('boostButton');
+        const shootButton = document.getElementById('shootButton');
+
+        let joystickActive = false;
+        let joystickPosition = { x: 0, y: 0 };
+        let joystickCenter = { x: 0, y: 0 };
+        let joystickRadius = 50;
+
+        function setupJoystick() {
+            const rect = joystick.getBoundingClientRect();
+            joystickCenter = {
+                x: rect.left + rect.width / 2,
+                y: rect.top + rect.height / 2
+            };
+        }
+
+        function updateJoystickPosition(e) {
+            const touch = e.touches[0];
+            const x = touch.clientX - joystickCenter.x;
+            const y = touch.clientY - joystickCenter.y;
+            const distance = Math.sqrt(x * x + y * y);
+            
+            if (distance > joystickRadius) {
+                const angle = Math.atan2(y, x);
+                joystickPosition = {
+                    x: Math.cos(angle) * joystickRadius,
+                    y: Math.sin(angle) * joystickRadius
+                };
+            } else {
+                joystickPosition = { x, y };
+            }
+
+            joystickKnob.style.transform = `translate(${joystickPosition.x}px, ${joystickPosition.y}px)`;
+        }
+
+        joystick.addEventListener('touchstart', (e) => {
+            joystickActive = true;
+            setupJoystick();
+            updateJoystickPosition(e);
+        });
+
+        document.addEventListener('touchmove', (e) => {
+            if (joystickActive) {
+                updateJoystickPosition(e);
+            }
+        });
+
+        document.addEventListener('touchend', () => {
+            joystickActive = false;
+            joystickPosition = { x: 0, y: 0 };
+            joystickKnob.style.transform = 'translate(-50%, -50%)';
+        });
+
+        // Expose mobile controls to game.js
+        window.mobileControls = {
+            getJoystickPosition: () => joystickPosition,
+            isBoostPressed: false,
+            isShootPressed: false
+        };
+
+        boostButton.addEventListener('touchstart', () => {
+            window.mobileControls.isBoostPressed = true;
+        });
+
+        boostButton.addEventListener('touchend', () => {
+            window.mobileControls.isBoostPressed = false;
+        });
+
+        shootButton.addEventListener('touchstart', () => {
+            window.mobileControls.isShootPressed = true;
+        });
+
+        shootButton.addEventListener('touchend', () => {
+            window.mobileControls.isShootPressed = false;
+        });
+    </script>
     <script src="game.js"></script>
 </body>
 </html>
