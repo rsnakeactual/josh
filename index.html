@@ -1,4 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>3D Flying Game</title>
+    <style>
+        body { margin: 0; }
+        canvas { display: block; }
+        #score {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            font-family: Arial;
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+        #instructions {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            color: white;
+            font-family: Arial;
+            font-size: 16px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+        #gameOver {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 40px;
+            border-radius: 10px;
+            text-align: center;
+            font-family: Arial;
+            border: 2px solid #444;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+        #gameOver h2 {
+            color: #ff4444;
+            margin: 0 0 20px 0;
+        }
+        #finalScore {
+            font-size: 24px;
+            margin: 20px 0;
+            color: #44ff44;
+        }
+        #restartButton {
+            background: #2244ff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 18px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        #restartButton:hover {
+            background: #4466ff;
+        }
+    </style>
+</head>
 <body>
-  <h1>Josh's Game site</h1>
-  Welome to my site.
+    <div id="score">Score: 0</div>
+    <div id="instructions">
+        Use Arrow Keys or WASD to move<br>
+        Collect green cubes, avoid red obstacles
+    </div>
+    <div id="gameOver">
+        <h2>Game Over!</h2>
+        <div id="finalScore">Score: 0</div>
+        <button id="restartButton">Play Again</button>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="game.js"></script>
 </body>
+</html> 
