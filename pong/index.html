@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Josh's Game Collection</title>
+    <style>
+        body {
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            font-family: 'Arial', sans-serif;
+            color: #fff;
+        }
+
+        .game-container {
+            position: relative;
+            margin: 20px;
+        }
+
+        canvas {
+            border: 4px solid #4a90e2;
+            border-radius: 10px;
+            background: #000;
+            box-shadow: 0 0 20px rgba(74, 144, 226, 0.3);
+        }
+
+        #score {
+            position: absolute;
+            top: -40px;
+            left: 0;
+            color: #fff;
+            font-size: 24px;
+            font-family: 'Press Start 2P', monospace;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        .game-menu {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+            border: 2px solid #4a90e2;
+            text-align: center;
+            z-index: 100;
+        }
+
+        .game-menu h1 {
+            color: #4a90e2;
+            margin-bottom: 20px;
+            font-size: 24px;
+        }
+
+        .game-menu button {
+            background: #4a90e2;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+
+        .game-menu button:hover {
+            background: #357abd;
+            transform: scale(1.05);
+        }
+
+        .power-up-indicator {
+            position: absolute;
+            top: -40px;
+            right: 0;
+            color: #fff;
+            font-size: 16px;
+            font-family: 'Press Start 2P', monospace;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        .game-links {
+            position: fixed;
+            bottom: 20px;
+            display: flex;
+            gap: 20px;
+        }
+
+        .game-links a {
+            color: #4a90e2;
+            text-decoration: none;
+            padding: 10px 20px;
+            border: 2px solid #4a90e2;
+            border-radius: 5px;
+            transition: all 0.3s ease;
+        }
+
+        .game-links a:hover {
+            background: #4a90e2;
+            color: white;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        .pulse {
+            animation: pulse 1s infinite;
+        }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="game-container">
+        <div id="score">Player: 0 | Computer: 0</div>
+        <div id="powerUpIndicator" class="power-up-indicator"></div>
+        <canvas id="pongCanvas" width="800" height="400"></canvas>
+        <div id="gameMenu" class="game-menu">
+            <h1>Josh's Game Collection</h1>
+            <button onclick="startGame()">Play Pong</button>
+            <button onclick="window.location.href='../fps/index.html'">Play FPS</button>
+        </div>
+    </div>
+
+    <div class="game-links">
+        <a href="../fps/index.html">Minecraft FPS</a>
+        <a href="index.html">Pong</a>
+    </div>
+
+    <script>
+        class Pong {
+            constructor() {
+                this.canvas = document.getElementById('pongCanvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.scoreElement = document.getElementById('score');
+                this.powerUpIndicator = document.getElementById('powerUpIndicator');
+                this.gameMenu = document.getElementById('gameMenu');
+                
+                // Game objects
+                this.ball = {
+                    x: this.canvas.width / 2,
+                    y: this.canvas.height / 2,
+                    radius: 10,
+                    speedX: 5,
+                    speedY: 5,
+                    color: '#fff'
+                };
+
+                this.balls = [this.ball];
+                this.powerUp = null;
+                this.powerUpTypes = ['largePaddle', 'multiBall', 'magnet'];
+                this.activePowerUp = null;
+                this.powerUpDuration = 10000;
+                this.powerUpStartTime = 0;
+                this.originalPaddleHeight = 100;
+                this.paddleHeight = this.originalPaddleHeight;
+                this.paddleWidth = 10;
+                this.paddleSpeed = 8;
+
+                this.player = {
+                    x: 0,
+                    y: this.canvas.height / 2 - this.paddleHeight / 2,
+                    score: 0,
+                    color: '#4a90e2'
+                };
+
+                this.computer = {
+                    x: this.canvas.width - this.paddleWidth,
+                    y: this.canvas.height / 2 - this.paddleHeight / 2,
+                    score: 0,
+                    color: '#e24a4a'
+                };
+
+                this.keys = {
+                    ArrowUp: false,
+                    ArrowDown: false,
+                    Space: false
+                };
+
+                document.addEventListener('keydown', (e) => this.handleKeyDown(e));
+                document.addEventListener('keyup', (e) => this.handleKeyUp(e));
+            }
+
+            start() {
+                this.gameMenu.style.display = 'none';
+                this.gameLoop();
+            }
+
+            updatePowerUpIndicator() {
+                if (this.activePowerUp) {
+                    const timeLeft = Math.ceil((this.powerUpDuration - (performance.now() - this.powerUpStartTime)) / 1000);
+                    let indicatorText = '';
+                    switch (this.activePowerUp) {
+                        case 'largePaddle':
+                            indicatorText = `Large Paddle: ${timeLeft}s`;
+                            break;
+                        case 'multiBall':
+                            indicatorText = `Multi-Ball: ${timeLeft}s`;
+                            break;
+                        case 'magnet':
+                            indicatorText = `Magnet: ${timeLeft}s (Press Space to release)`;
+                            break;
+                    }
+                    this.powerUpIndicator.textContent = indicatorText;
+                } else {
+                    this.powerUpIndicator.textContent = '';
+                }
+            }
+
+            spawnPowerUp() {
+                if (this.powerUp === null && Math.random() < 0.01) { // 1% chance each frame
+                    const type = this.powerUpTypes[Math.floor(Math.random() * this.powerUpTypes.length)];
+                    this.powerUp = {
+                        x: Math.random() * (this.canvas.width - 20) + 10,
+                        y: Math.random() * (this.canvas.height - 20) + 10,
+                        radius: 10,
+                        type: type,
+                        color: type === 'largePaddle' ? '#ff0' : 
+                               type === 'multiBall' ? '#0ff' : '#f0f',
+                        speedX: (Math.random() - 0.5) * 4, // Random horizontal speed
+                        speedY: (Math.random() - 0.5) * 4  // Random vertical speed
+                    };
+                }
+            }
+
+            updatePowerUp() {
+                if (this.powerUp) {
+                    // Move power-up
+                    this.powerUp.x += this.powerUp.speedX;
+                    this.powerUp.y += this.powerUp.speedY;
+
+                    // Bounce off walls
+                    if (this.powerUp.x + this.powerUp.radius > this.canvas.width || 
+                        this.powerUp.x - this.powerUp.radius < 0) {
+                        this.powerUp.speedX = -this.powerUp.speedX;
+                    }
+                    if (this.powerUp.y + this.powerUp.radius > this.canvas.height || 
+                        this.powerUp.y - this.powerUp.radius < 0) {
+                        this.powerUp.speedY = -this.powerUp.speedY;
+                    }
+                }
+            }
+
+            collectPowerUp(ball) {
+                if (this.powerUp && this.checkPowerUpCollision(ball)) {
+                    // Activate the power-up immediately
+                    this.activatePowerUp(this.powerUp.type);
+                    // Remove the power-up
+                    this.powerUp = null;
+                    // Add a small speed boost to the ball that collected it
+                    ball.speedX *= 1.1;
+                    ball.speedY *= 1.1;
+                }
+            }
+
+            checkPowerUpCollision(ball) {
+                if (!this.powerUp) return false;
+                const dx = ball.x - this.powerUp.x;
+                const dy = ball.y - this.powerUp.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                return distance < ball.radius + this.powerUp.radius;
+            }
+
+            checkPaddlePowerUpCollision(paddle) {
+                if (!this.powerUp) return false;
+                return this.powerUp.x + this.powerUp.radius > paddle.x &&
+                       this.powerUp.x - this.powerUp.radius < paddle.x + this.paddleWidth &&
+                       this.powerUp.y + this.powerUp.radius > paddle.y &&
+                       this.powerUp.y - this.powerUp.radius < paddle.y + this.paddleHeight;
+            }
+
+            activatePowerUp(type) {
+                if (this.activePowerUp) return; // Don't activate if another power-up is active
+
+                this.activePowerUp = type;
+                this.powerUpStartTime = performance.now();
+
+                switch (type) {
+                    case 'largePaddle':
+                        this.paddleHeight = this.originalPaddleHeight * 1.5;
+                        this.player.y = this.canvas.height / 2 - this.paddleHeight / 2;
+                        this.computer.y = this.canvas.height / 2 - this.paddleHeight / 2;
+                        break;
+                    case 'multiBall':
+                        // Create two additional balls
+                        for (let i = 0; i < 2; i++) {
+                            const newBall = {
+                                x: this.ball.x,
+                                y: this.ball.y,
+                                radius: this.ball.radius,
+                                speedX: this.ball.speedX * (Math.random() > 0.5 ? 1 : -1),
+                                speedY: this.ball.speedY * (Math.random() > 0.5 ? 1 : -1),
+                                color: '#fff'
+                            };
+                            this.balls.push(newBall);
+                        }
+                        break;
+                    case 'magnet':
+                        // Magnet effect will be handled in the update method
+                        break;
+                }
+            }
+
+            deactivatePowerUp() {
+                switch (this.activePowerUp) {
+                    case 'largePaddle':
+                        this.paddleHeight = this.originalPaddleHeight;
+                        this.player.y = this.canvas.height / 2 - this.paddleHeight / 2;
+                        this.computer.y = this.canvas.height / 2 - this.paddleHeight / 2;
+                        break;
+                    case 'multiBall':
+                        this.balls = [this.ball];
+                        break;
+                    case 'magnet':
+                        // Release the ball with proper velocity
+                        this.ball.speedX = 8; // Set a good initial speed
+                        this.ball.speedY = (Math.random() - 0.5) * 4; // Add slight random vertical movement
+                        break;
+                }
+                this.activePowerUp = null;
+            }
+
+            handleKeyDown(e) {
+                if (this.keys.hasOwnProperty(e.key)) {
+                    this.keys[e.key] = true;
+                    if (e.key === 'Space' && this.activePowerUp === 'magnet') {
+                        this.deactivatePowerUp();
+                    }
+                }
+            }
+
+            handleKeyUp(e) {
+                if (this.keys.hasOwnProperty(e.key)) {
+                    this.keys[e.key] = false;
+                }
+            }
+
+            update() {
+                // Check power-up duration
+                if (this.activePowerUp && performance.now() - this.powerUpStartTime > this.powerUpDuration) {
+                    this.deactivatePowerUp();
+                }
+
+                // Spawn and update power-ups
+                this.spawnPowerUp();
+                this.updatePowerUp();
+
+                // Check for paddle power-up collisions
+                if (this.powerUp) {
+                    if (this.checkPaddlePowerUpCollision(this.player) || this.checkPaddlePowerUpCollision(this.computer)) {
+                        this.activatePowerUp(this.powerUp.type);
+                        this.powerUp = null;
+                    }
+                }
+
+                // Move player paddle
+                if (this.keys.ArrowUp && this.player.y > 0) {
+                    this.player.y -= this.paddleSpeed;
+                }
+                if (this.keys.ArrowDown && this.player.y < this.canvas.height - this.paddleHeight) {
+                    this.player.y += this.paddleSpeed;
+                }
+
+                // Move computer paddle (simple AI)
+                const computerCenter = this.computer.y + this.paddleHeight / 2;
+                const randomOffset = (Math.random() - 0.5) * 150;
+                const reactionDelay = Math.random() > 0.6;
+                const wrongDirection = Math.random() > 0.9;
+                
+                if (!reactionDelay) {
+                    if (computerCenter < this.ball.y - 35 + randomOffset) {
+                        this.computer.y += this.paddleSpeed * (wrongDirection ? -0.5 : 0.5);
+                    } else if (computerCenter > this.ball.y + 35 + randomOffset) {
+                        this.computer.y -= this.paddleSpeed * (wrongDirection ? -0.5 : 0.5);
+                    }
+                }
+
+                // Keep computer paddle in bounds
+                if (this.computer.y < 0) this.computer.y = 0;
+                if (this.computer.y > this.canvas.height - this.paddleHeight) {
+                    this.computer.y = this.canvas.height - this.paddleHeight;
+                }
+
+                // Update all balls
+                for (let i = this.balls.length - 1; i >= 0; i--) {
+                    const ball = this.balls[i];
+                    
+                    // Move ball
+                    ball.x += ball.speedX;
+                    ball.y += ball.speedY;
+
+                    // Ball collision with top and bottom
+                    if (ball.y + ball.radius > this.canvas.height || ball.y - ball.radius < 0) {
+                        ball.speedY = -ball.speedY;
+                    }
+
+                    // Ball collision with paddles
+                    if (this.checkCollision(ball, this.player)) {
+                        ball.speedX = Math.abs(ball.speedX);
+                        this.collectPowerUp(ball);
+                    }
+                    if (this.checkCollision(ball, this.computer)) {
+                        ball.speedX = -Math.abs(ball.speedX);
+                        this.collectPowerUp(ball);
+                    }
+
+                    // Magnet effect
+                    if (this.activePowerUp === 'magnet' && ball === this.ball) {
+                        ball.x = this.player.x + this.paddleWidth;
+                        ball.y = this.player.y + this.paddleHeight / 2;
+                        ball.speedX = 0;
+                        ball.speedY = 0;
+                    }
+
+                    // Score points
+                    if (ball.x < 0) {
+                        this.computer.score++;
+                        if (ball === this.ball) {
+                            this.resetBall();
+                        } else {
+                            this.balls.splice(i, 1);
+                        }
+                    } else if (ball.x > this.canvas.width) {
+                        this.player.score++;
+                        if (ball === this.ball) {
+                            this.resetBall();
+                        } else {
+                            this.balls.splice(i, 1);
+                        }
+                    }
+                }
+
+                // Update score display
+                this.scoreElement.textContent = `Player: ${this.player.score} | Computer: ${this.computer.score}`;
+            }
+
+            checkCollision(ball, paddle) {
+                return ball.x + ball.radius > paddle.x &&
+                       ball.x - ball.radius < paddle.x + this.paddleWidth &&
+                       ball.y + ball.radius > paddle.y &&
+                       ball.y - ball.radius < paddle.y + this.paddleHeight;
+            }
+
+            resetBall() {
+                this.ball.x = this.canvas.width / 2;
+                this.ball.y = this.canvas.height / 2;
+                this.ball.speedX = -this.ball.speedX;
+                this.ball.speedY = (Math.random() - 0.5) * 10;
+            }
+
+            draw() {
+                // Clear canvas with gradient
+                const gradient = this.ctx.createLinearGradient(0, 0, 0, this.canvas.height);
+                gradient.addColorStop(0, '#1a1a2e');
+                gradient.addColorStop(1, '#16213e');
+                this.ctx.fillStyle = gradient;
+                this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+                // Draw center line
+                this.ctx.setLineDash([5, 15]);
+                this.ctx.beginPath();
+                this.ctx.moveTo(this.canvas.width / 2, 0);
+                this.ctx.lineTo(this.canvas.width / 2, this.canvas.height);
+                this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+                this.ctx.stroke();
+
+                // Draw power-up if exists
+                if (this.powerUp) {
+                    this.ctx.beginPath();
+                    this.ctx.arc(this.powerUp.x, this.powerUp.y, this.powerUp.radius, 0, Math.PI * 2);
+                    this.ctx.fillStyle = this.powerUp.color;
+                    this.ctx.fill();
+                    this.ctx.closePath();
+                }
+
+                // Draw all balls
+                this.balls.forEach(ball => {
+                    this.ctx.beginPath();
+                    this.ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+                    this.ctx.fillStyle = ball.color;
+                    this.ctx.fill();
+                    this.ctx.closePath();
+                });
+
+                // Draw paddles with glow effect
+                this.ctx.shadowBlur = 15;
+                this.ctx.shadowColor = this.player.color;
+                this.ctx.fillStyle = this.player.color;
+                this.ctx.fillRect(this.player.x, this.player.y, this.paddleWidth, this.paddleHeight);
+
+                this.ctx.shadowColor = this.computer.color;
+                this.ctx.fillStyle = this.computer.color;
+                this.ctx.fillRect(this.computer.x, this.computer.y, this.paddleWidth, this.paddleHeight);
+                this.ctx.shadowBlur = 0;
+            }
+
+            gameLoop() {
+                this.update();
+                this.updatePowerUpIndicator();
+                this.draw();
+                requestAnimationFrame(() => this.gameLoop());
+            }
+        }
+
+        let game;
+        function startGame() {
+            game = new Pong();
+            game.start();
+        }
+
+        // Start with the menu
+        window.onload = () => {
+            game = new Pong();
+        };
+    </script>
+</body>
+</html>
