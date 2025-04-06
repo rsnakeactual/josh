@@ -581,14 +581,18 @@ function updateMovement() {
         const joystickPos = window.mobileControls.getJoystickPosition();
         moveX += joystickPos.x / 50;
         moveY -= joystickPos.y / 50;
-        if (window.mobileControls.isBoostPressed) isBoosting = true;
         
-        // Handle shooting with mobile button
+        // Handle boost from mobile
+        if (window.mobileControls.isBoostPressed) {
+            isBoosting = true;
+        }
+        
+        // Handle shooting from mobile
         if (window.mobileControls.isShootPressed && !isGameOver) {
             const now = Date.now();
-            if (now - lastShot >= SHOT_COOLDOWN) {
+            if (now - window.mobileControls.lastShot >= window.mobileControls.SHOT_COOLDOWN) {
                 createBullet();
-                lastShot = now;
+                window.mobileControls.lastShot = now;
             }
         }
     }

@@ -220,7 +220,9 @@
         window.mobileControls = {
             getJoystickPosition: () => joystickPosition,
             isBoostPressed: false,
-            isShootPressed: false
+            isShootPressed: false,
+            lastShot: 0,
+            SHOT_COOLDOWN: 250
         };
 
         boostButton.addEventListener('touchstart', () => {
