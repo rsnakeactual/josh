@@ -46,6 +46,14 @@ document.addEventListener('keydown', (e) => {
     if (keys.hasOwnProperty(e.key)) {
         keys[e.key] = true;
     }
+    // Handle shooting with space
+    if (e.key === ' ' && !isGameOver) {
+        const now = Date.now();
+        if (now - lastShot >= SHOT_COOLDOWN) {
+            createBullet();
+            lastShot = now;
+        }
+    }
 });
 
 document.addEventListener('keyup', (e) => {
@@ -564,17 +572,25 @@ function updateMovement() {
     // Check keyboard controls
     if (keys.ArrowLeft || keys.a) moveX -= 1;
     if (keys.ArrowRight || keys.d) moveX += 1;
-    if (keys.ArrowUp || keys.w) moveY += 1;  // Changed to positive for up
-    if (keys.ArrowDown || keys.s) moveY -= 1;  // Changed to negative for down
+    if (keys.ArrowUp || keys.w) moveY += 1;
+    if (keys.ArrowDown || keys.s) moveY -= 1;
     if (keys[' ']) isBoosting = true;
 
     // Check mobile controls if available
     if (window.mobileControls) {
         const joystickPos = window.mobileControls.getJoystickPosition();
-        // Normalize joystick position to -1 to 1 range and invert Y axis
         moveX += joystickPos.x / 50;
-        moveY -= joystickPos.y / 50;  // Inverted Y axis
+        moveY -= joystickPos.y / 50;
         if (window.mobileControls.isBoostPressed) isBoosting = true;
+        
+        // Handle shooting with mobile button
+        if (window.mobileControls.isShootPressed && !isGameOver) {
+            const now = Date.now();
+            if (now - lastShot >= SHOT_COOLDOWN) {
+                createBullet();
+                lastShot = now;
+            }
+        }
     }
 
     // Normalize diagonal movement
